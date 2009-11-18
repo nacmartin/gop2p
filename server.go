@@ -8,9 +8,17 @@ import (
 	"encoding/binary";
 )
 
-func ProcessConn(conn *net.TCPConn) {
+type TClient struct {
+	local		net.TCPAddr;
+	forserver	net.TCPAddr;
+	msg			string;
+}
+
+func ProcessConn(conn *net.TCPConn, client chan TClient) {
 	defer conn.Close();
 	log.Stdout("connected\n");
+
+	//get client's ip and port
 	conn.Write(strings.Bytes("hi"));
 	ip16 := make([]byte, 16);
 	conn.Read(ip16);
@@ -19,7 +27,22 @@ func ProcessConn(conn *net.TCPConn) {
 	portb := make([]byte, 4);
 	conn.Read(portb);
 	port = binary.LittleEndian.Uint32(portb);
+
+	clientLocalAddr := net.TCPAddr{ip, int(port)};
+	log.Stdout(clientLocalAddr.Port);
 	log.Stdout("new client on: " + ip.String() + ":" + fmt.Sprintf("%d", port) + "\n");
+}
+
+func ListenConnections(listener *net.TCPListener, connections chan *net.TCPConn, clients chan TClient) {
+	for {
+		conn, err := listener.AcceptTCP();
+		if err != nil {
+			log.Stdout("error in Accept():", err)
+		} else {
+			go ProcessConn(conn, clients);
+			connections <- conn;
+		}
+	}
 }
 
 func main() {
@@ -31,14 +54,18 @@ func main() {
 	if err != nil {
 		log.Exit("error", err)
 	}
-	//c := make(chan int);
+
+	connections := make(chan *net.TCPConn);
+	clients := make(chan TClient);
+
+	go ListenConnections(listener, connections, clients);
+	log.Stdout("Waiting for connections\n");
 	for {
-		log.Stdout("Waiting for connections\n");
-		conn, err := listener.AcceptTCP();
-		if err != nil {
-			log.Stdout("error in Accept():", err)
-		} else {
-			go func() { ProcessConn(conn) }()
+		select {
+		case conn := <-connections:
+			log.Stdout(conn)
+		case client := <-clients:
+			log.Stdout(client)
 		}
 	}
 }

@@ -33,7 +33,6 @@ func main() {
 	if err != nil {
 		log.Exit("error resolving client:", err)
 	}
-	log.Stdout(addr.Port);
 	conn, err := net.Dial("tcp", "", *server);
 	if err != nil {
 		log.Exit("error resolving server", err)
@@ -46,6 +45,8 @@ func main() {
 	log.Stdout("server says: " + string(b[0:size]));
 	if !streq("hi", string(b[0:size])) {
 		log.Exit("Error initializing")
+	} else {
+		log.Stdout("And that's fine")
 	}
 	conn.Write(addr.IP);
 	binary.LittleEndian.PutUint32(b, uint32(addr.Port));
