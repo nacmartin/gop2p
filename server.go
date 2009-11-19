@@ -3,34 +3,72 @@ package main
 import (
 	"net";
 	"log";
+    "os";
 	"strings";
-	"fmt";
-	"encoding/binary";
+    "time";
+    "regexp";
+    "./util";
 )
 
 type TClient struct {
-	local		net.TCPAddr;
-	forserver	net.TCPAddr;
+	local		string;
+	forserver	string;
 	msg			string;
 }
 
+type SFile struct {
+    local   string;
+    name    string;
+}
+
+func myReader(conn *net.TCPConn, client chan TClient){
+    var rcvStr string;
+    var localAddr string;
+    for{
+        rcvStr = "";
+        read := true;
+        for read {
+            rcvd := make([]byte, 1);
+            size, err := conn.Read(rcvd);
+            switch err {
+            case os.EOF:
+               //log.Stdout("Warning: End of data reached: ", err);
+               read = false;
+            case nil:
+                if(util.Streq(string(rcvd[0:1]),"\n")){
+                    read = false;
+                }else{
+                    rcvStr = rcvStr + string(rcvd[0:size]);
+                }
+            default:
+               log.Stdout("Error: Reading data: ", err);
+               read = false;
+            }
+            if(util.Streq(string(rcvd[0:1]),"\n")){
+               read = false;
+            }
+        }
+        if regexp.MustCompile("^I'm").MatchString(rcvStr) {
+            ladr, _ := net.ResolveTCPAddr(strings.Split(rcvStr," ",2)[1]);
+            localAddr = ladr.String();
+            log.Stdout(localAddr);
+            client <-TClient{localAddr, conn.RemoteAddr().String(), "new"};
+        }else{
+            if len(rcvStr) > 0 {
+                client <-TClient{localAddr, conn.RemoteAddr().String(), rcvStr};
+                log.Stdout("Data sent by client: " + rcvStr);
+            }
+            time.Sleep(5*1000*1000);
+        }
+    }
+}
+
 func ProcessConn(conn *net.TCPConn, client chan TClient) {
-	defer conn.Close();
 	log.Stdout("connected\n");
 
 	//get client's ip and port
 	conn.Write(strings.Bytes("hi"));
-	ip16 := make([]byte, 16);
-	conn.Read(ip16);
-	ip := net.IP(ip16);
-	var port uint32;
-	portb := make([]byte, 4);
-	conn.Read(portb);
-	port = binary.LittleEndian.Uint32(portb);
-
-	clientLocalAddr := net.TCPAddr{ip, int(port)};
-	log.Stdout(clientLocalAddr.Port);
-	log.Stdout("new client on: " + ip.String() + ":" + fmt.Sprintf("%d", port) + "\n");
+    go myReader(conn, client);
 }
 
 func ListenConnections(listener *net.TCPListener, connections chan *net.TCPConn, clients chan TClient) {
@@ -39,6 +77,8 @@ func ListenConnections(listener *net.TCPListener, connections chan *net.TCPConn,
 		if err != nil {
 			log.Stdout("error in Accept():", err)
 		} else {
+			conn.SetKeepAlive(true);
+            conn.SetReadTimeout(5*1000*1000*1000);
 			go ProcessConn(conn, clients);
 			connections <- conn;
 		}
@@ -55,17 +95,30 @@ func main() {
 		log.Exit("error", err)
 	}
 
+	//1 channel for incoming connections, another for client communication
 	connections := make(chan *net.TCPConn);
 	clients := make(chan TClient);
+    cMap := make(map[string] *net.TCPConn);
+    fMap := make(map[string] string);
 
 	go ListenConnections(listener, connections, clients);
 	log.Stdout("Waiting for connections\n");
 	for {
 		select {
 		case conn := <-connections:
-			log.Stdout(conn)
+            cMap[conn.RemoteAddr().String()] = conn;
 		case client := <-clients:
-			log.Stdout(client)
+            if regexp.MustCompile("^have ").MatchString(client.msg){
+                fMap[string(client.msg[5:len(client.msg)])] = client.local;
+            }
+            if regexp.MustCompile("^list").MatchString(client.msg){
+                for key, value := range fMap {
+                    cMap[client.forserver].Write(strings.Bytes(key+"->"+value));
+                }
+                cMap[client.forserver].Write(strings.Bytes("\n"));
+            }
 		}
 	}
 }
+
+

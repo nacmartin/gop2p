@@ -4,28 +4,15 @@ import (
 	"net";
 	"log";
 	"flag";
-	"encoding/binary";
-	//        "fmt";
-	//        "strings";
+	"strings";
+    "io";
+    "os";
+    "./util";
 )
 
 var server = flag.String("s", "127.0.0.1:4009", "server address")
 var local = flag.String("c", "127.0.0.1:4005", "client address")
-
-func streq(s1 string, s2 string) bool {
-	if len(s1) != len(s2) {
-		log.Stdout("nomi");
-		log.Stdout(len(s1));
-		log.Stdout(len(s2));
-		return false;
-	}
-	for i := 0; i < len(s1); i++ {
-		if s1[i] != s2[i] {
-			return false
-		}
-	}
-	return true;
-}
+var dir = flag.String("d", "/data", "data dir")
 
 func main() {
 	flag.Parse();
@@ -43,12 +30,42 @@ func main() {
 		log.Exit("error reading ", err)
 	}
 	log.Stdout("server says: " + string(b[0:size]));
-	if !streq("hi", string(b[0:size])) {
-		log.Exit("Error initializing")
+	if !util.Streq("hi", string(b[0:size])) {
+		log.Exit("Error initializing", err)
 	} else {
 		log.Stdout("And that's fine")
 	}
-	conn.Write(addr.IP);
-	binary.LittleEndian.PutUint32(b, uint32(addr.Port));
-	conn.Write(b[0:3]);
+	conn.Write(strings.Bytes("I'm "+addr.String()+"\n"));
+    files, err := io.ReadDir(*dir);
+    if err != nil {
+        log.Exit("error reading dir", err);
+    }
+    for _, v := range files{
+        conn.Write(strings.Bytes("have "+v.Name+"\n"));
+    }
+	conn.Write(strings.Bytes("list\n"));
+
+    for{
+        rcvStr := "";
+        read := true;
+        for read {
+            rcvd := make([]byte, 1);
+            size, err := conn.Read(rcvd);
+            switch err {
+            case os.EOF:
+               //log.Stdout("Warning: End of data reached: ", err);
+               read = false;
+            case nil:
+                if(util.Streq(string(rcvd[0:1]),"\n")){
+                    read = false;
+                }else{
+                    rcvStr = rcvStr + string(rcvd[0:size]);
+                }
+            default:
+               log.Stdout("Error: Reading data: ", err);
+               read = false;
+            }
+        }
+        log.Stdout(rcvStr);
+    }
 }
