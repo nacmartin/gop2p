@@ -5,9 +5,9 @@ import (
 	"log";
 	"flag";
 	"strings";
-    "io";
-    "os";
-    "./util";
+	"io";
+	"os";
+	"./util";
 )
 
 var server = flag.String("s", "127.0.0.1:4009", "server address")
@@ -35,37 +35,37 @@ func main() {
 	} else {
 		log.Stdout("And that's fine")
 	}
-	conn.Write(strings.Bytes("I'm "+addr.String()+"\n"));
-    files, err := io.ReadDir(*dir);
-    if err != nil {
-        log.Exit("error reading dir", err);
-    }
-    for _, v := range files{
-        conn.Write(strings.Bytes("have "+v.Name+"\n"));
-    }
+	conn.Write(strings.Bytes("I'm " + addr.String() + "\n"));
+	files, err := io.ReadDir(*dir);
+	if err != nil {
+		log.Exit("error reading dir", err)
+	}
+	for _, v := range files {
+		conn.Write(strings.Bytes("have " + v.Name + "\n"))
+	}
 	conn.Write(strings.Bytes("list\n"));
 
-    for{
-        rcvStr := "";
-        read := true;
-        for read {
-            rcvd := make([]byte, 1);
-            size, err := conn.Read(rcvd);
-            switch err {
-            case os.EOF:
-               //log.Stdout("Warning: End of data reached: ", err);
-               read = false;
-            case nil:
-                if(util.Streq(string(rcvd[0:1]),"\n")){
-                    read = false;
-                }else{
-                    rcvStr = rcvStr + string(rcvd[0:size]);
-                }
-            default:
-               log.Stdout("Error: Reading data: ", err);
-               read = false;
-            }
-        }
-        log.Stdout(rcvStr);
-    }
+	for {
+		rcvStr := "";
+		read := true;
+		for read {
+			rcvd := make([]byte, 1);
+			size, err := conn.Read(rcvd);
+			switch err {
+			case os.EOF:
+				//log.Stdout("Warning: End of data reached: ", err);
+				read = false
+			case nil:
+				if util.Streq(string(rcvd[0:1]), "\n") {
+					read = false
+				} else {
+					rcvStr = rcvStr + string(rcvd[0:size])
+				}
+			default:
+				log.Stdout("Error: Reading data: ", err);
+				read = false;
+			}
+		}
+		log.Stdout(rcvStr);
+	}
 }
