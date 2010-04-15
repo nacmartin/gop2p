@@ -36,12 +36,11 @@ func main() {
 		log.Stdout("And that's fine")
 	}
 	conn.Write(strings.Bytes("I'm " + addr.String() + "\n"));
-	files, err := io.ReadDir(*dir);
-	if err != nil {
-		log.Exit("error reading dir", err)
-	}
+	files, _ := io.ReadDir(*dir);
 	for _, v := range files {
-		conn.Write(strings.Bytes("have " + v.Name + "\n"))
+        if !v.IsDirectory(){
+		    conn.Write(strings.Bytes("have " + v.Name + "\n"))
+        }
 	}
 	conn.Write(strings.Bytes("list\n"));
 
