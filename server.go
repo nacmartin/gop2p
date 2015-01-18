@@ -1,13 +1,12 @@
 package main
 
 import (
+	"io";
 	"net";
-	"log";
-	"os";
+	"fmt";
 	"strings";
 	"time";
 	"regexp";
-	"./util";
 )
 
 type TClient struct {
@@ -31,32 +30,32 @@ func myReader(conn *net.TCPConn, client chan TClient) {
 			rcvd := make([]byte, 1);
 			size, err := conn.Read(rcvd);
 			switch err {
-			case os.EOF:
+			case io.EOF:
 				//log.Stdout("Warning: End of data reached: ", err);
 				read = false
 			case nil:
-				if util.Streq(string(rcvd[0:1]), "\n") {
+				if (string(rcvd[0:1]) == "\n") {
 					read = false
 				} else {
 					rcvStr = rcvStr + string(rcvd[0:size])
 				}
 			default:
-				log.Stdout("Error: Reading data: ", err);
+				fmt.Println("Error: Reading data: ", err);
 				read = false;
 			}
-			if util.Streq(string(rcvd[0:1]), "\n") {
+			if (string(rcvd[0:1])== "\n") {
 				read = false
 			}
 		}
 		if regexp.MustCompile("^I'm").MatchString(rcvStr) {
-			ladr, _ := net.ResolveTCPAddr(strings.Split(rcvStr, " ", 2)[1]);
+			ladr, _ := net.ResolveTCPAddr("tcp", strings.Split(rcvStr, " ")[1]);
 			localAddr = ladr.String();
-			log.Stdout(localAddr);
+			fmt.Println(localAddr);
 			client <- TClient{localAddr, conn.RemoteAddr().String(), "new"};
 		} else {
 			if len(rcvStr) > 0 {
 				client <- TClient{localAddr, conn.RemoteAddr().String(), rcvStr};
-				log.Stdout("Data sent by client: " + rcvStr);
+				fmt.Println("Data sent by client: " + rcvStr);
 			}
 			time.Sleep(5 * 1000 * 1000);
 		}
@@ -64,10 +63,10 @@ func myReader(conn *net.TCPConn, client chan TClient) {
 }
 
 func ProcessConn(conn *net.TCPConn, client chan TClient) {
-	log.Stdout("connected\n");
+	fmt.Println("connected\n");
 
 	//get client's ip and port
-	conn.Write(strings.Bytes("hi"));
+	conn.Write([]byte("hi"));
 	go myReader(conn, client);
 }
 
@@ -75,10 +74,10 @@ func ListenConnections(listener *net.TCPListener, connections chan *net.TCPConn,
 	for {
 		conn, err := listener.AcceptTCP();
 		if err != nil {
-			log.Stdout("error in Accept():", err)
+			fmt.Println("error in Accept():", err)
 		} else {
 			conn.SetKeepAlive(true);
-			conn.SetReadTimeout(5 * 1000 * 1000 * 1000);
+			conn.SetReadDeadline(time.Now().Add(10 * time.Second));
 			go ProcessConn(conn, clients);
 			connections <- conn;
 		}
@@ -86,13 +85,15 @@ func ListenConnections(listener *net.TCPListener, connections chan *net.TCPConn,
 }
 
 func main() {
-	addr, err := net.ResolveTCPAddr("127.0.0.1:4009");
+	addr, err := net.ResolveTCPAddr("tcp","127.0.0.1:4009");
+	
 	if err != nil {
-		log.Exit("error:", err)
+		fmt.Println("error:", err)
 	}
+
 	listener, err := net.ListenTCP("tcp", addr);
 	if err != nil {
-		log.Exit("error", err)
+		fmt.Println("error", err)
 	}
 
 	//1 channel for incoming connections, another for client communication
@@ -102,7 +103,7 @@ func main() {
 	fMap := make(map[string]string);
 
 	go ListenConnections(listener, connections, clients);
-	log.Stdout("Waiting for connections\n");
+	fmt.Println("Waiting for connections\n");
 	for {
 		select {
 		case conn := <-connections:
@@ -113,9 +114,9 @@ func main() {
 			}
 			if regexp.MustCompile("^list").MatchString(client.msg) {
 				for key, value := range fMap {
-					cMap[client.forserver].Write(strings.Bytes(key + "->" + value))
+					cMap[client.forserver].Write([]byte(key + "->" + value))
 				}
-				cMap[client.forserver].Write(strings.Bytes("\n"));
+				cMap[client.forserver].Write([]byte("\n"));
 			}
 		}
 	}

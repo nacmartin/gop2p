@@ -1,13 +1,11 @@
 package main
 
 import (
-	"net";
-	"log";
-	"flag";
-	"strings";
+	//"io/ioutil";
 	"io";
-	"os";
-	"./util";
+	"net";
+	"fmt";
+	"flag";
 )
 
 var server = flag.String("s", "127.0.0.1:4009", "server address")
@@ -16,33 +14,35 @@ var dir = flag.String("d", "/data", "data dir")
 
 func main() {
 	flag.Parse();
-	addr, err := net.ResolveTCPAddr(*local);
+	addr, err := net.ResolveTCPAddr("tcp",*local);
 	if err != nil {
-		log.Exit("error resolving client:", err)
+		fmt.Println("error resolving client:", err)
 	}
-	conn, err := net.Dial("tcp", "", *server);
+	conn, err := net.Dial("tcp", *server);
 	if err != nil {
-		log.Exit("error resolving server", err)
+		fmt.Println("error resolving server", err)
 	}
 	b := make([]byte, 1024);
 	size, err := conn.Read(b);
 	if err != nil {
-		log.Exit("error reading ", err)
+		fmt.Println("error reading ", err)
 	}
-	log.Stdout("server says: " + string(b[0:size]));
-	if !util.Streq("hi", string(b[0:size])) {
-		log.Exit("Error initializing", err)
+	fmt.Println("server says: " + string(b[0:size]));
+	if !("hi" == string(b[0:size])) {
+		fmt.Println("Error initializing", err)
 	} else {
-		log.Stdout("And that's fine")
+		fmt.Println("And that's fine")
 	}
-	conn.Write(strings.Bytes("I'm " + addr.String() + "\n"));
-	files, _ := io.ReadDir(*dir);
+	conn.Write([]byte("I'm " + addr.String() + "\n"));
+	//files, _ := ioutil.ReadDir(*dir);
+	/*
 	for _, v := range files {
-        if !v.IsDirectory(){
-		    conn.Write(strings.Bytes("have " + v.Name + "\n"))
+        if !v.Fileinfo().IsDir(){
+		    conn.Write([]byte("have " + v.Name + "\n"))
         }
 	}
-	conn.Write(strings.Bytes("list\n"));
+	*/
+	conn.Write([]byte("list\n"));
 
 	for {
 		rcvStr := "";
@@ -51,20 +51,20 @@ func main() {
 			rcvd := make([]byte, 1);
 			size, err := conn.Read(rcvd);
 			switch err {
-			case os.EOF:
+			case io.EOF:
 				//log.Stdout("Warning: End of data reached: ", err);
 				read = false
 			case nil:
-				if util.Streq(string(rcvd[0:1]), "\n") {
+				if (string(rcvd[0:1]) == "\n") {
 					read = false
 				} else {
 					rcvStr = rcvStr + string(rcvd[0:size])
 				}
 			default:
-				log.Stdout("Error: Reading data: ", err);
+				fmt.Println("Error: Reading data: ", err);
 				read = false;
 			}
 		}
-		log.Stdout(rcvStr);
+		fmt.Println(rcvStr);
 	}
 }
