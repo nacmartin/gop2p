@@ -1,3 +1,4 @@
-Careful: This code was written as an experiment on the first months after the first release of go.
+I wrote this code while I was learning Go.
 
+In a PR xaviertorgerson updated it to work with 1.3
 
