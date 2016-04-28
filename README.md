@@ -1,4 +1,4 @@
-I wrote this code while I was learning Go.
+I wrote this code while I was learning Go, in 2009, when it was first released.
 
-In a PR xaviertorgerson updated it to work with 1.3
+xaviertorgerson updated it to work with 1.3, however, it may not be upt to date with newer versions.
 
